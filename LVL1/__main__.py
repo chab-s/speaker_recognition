@@ -124,5 +124,5 @@ def lvl2():
     pass
 
 if __name__ == '__main__':
-    # lvl1()
-    lvl2()
+    lvl1()
+    # lvl2()

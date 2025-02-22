@@ -155,7 +155,6 @@ class ReadAudioFile:
 
         return stft_db
 
-
     def mel_filter_bank(self, n_filters, win_size, sample_freq, fmin=0, fmax=None):
         if fmax is None:
             fmax = sample_freq/2
