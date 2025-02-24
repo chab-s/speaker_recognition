@@ -22,10 +22,17 @@
     }
   },
   "model": {
-    "model_type": "SVM",
+    "model": "KMeans",
     "test_size": 0.2,
     "random_state": 42,
     "save_path": "weights/svm.pkl",
+    "inference_data_path": "inference_data"
+  },
+  "ubm_params": {
+    "n_components": 64,
+    "max_iter": 100,
+    "random_state": 42,
+    "save_path": "ubm_weights",
     "inference_data_path": "inference_data"
   }
 }
