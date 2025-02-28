@@ -1,2 +1,8 @@
 # Ignore .pages files (too heavy)
 *.pages
+
+/saved_models/*
+
+/venv/
+
+*.DS_Store
