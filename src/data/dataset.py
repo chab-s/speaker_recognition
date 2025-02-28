@@ -6,7 +6,9 @@ import librosa
 import numpy as np
 import pandas as pd
 
+from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
+
 
 
 class SpeakerDataset(BaseDataset):
@@ -47,10 +49,40 @@ class SpeakerDataset(BaseDataset):
         if self.shuffle:
             self.df.sample(frac=1, random_state=42, ignore_index=True, inplace=True)
         self.features = np.vstack(self.df['mfccs'].values)
-        self._encode_label(column_name='speaker')
+        self.labels = self._encode_labels(self.df, column_name='speaker')
 
     def _extract_features(self):
         self.df['mfccs'] = self.df.apply(lambda row: mfcc(row['signal'], row['sampling_rate']), axis=1)
+
+class UbmGmmDataset(SpeakerDataset):
+    def __init__(self, data_path: str, speakers):
+        super().__init__(data_path, speakers)
+
+    def split_data(self, gmm_size: float, test_size: float, random_state: int = 42):
+        X_train, X_test, y_train, y_test = train_test_split(
+            self.features, self.labels,
+            test_size=test_size,
+            random_state=random_state,
+            stratify=self.labels
+        )
+
+        X_ubm, X_gmm, y_ubm, y_gmm = train_test_split(
+            self.features, self.labels,
+            test_size=gmm_size,
+            random_state=random_state,
+            stratify=self.labels
+        )
+
+        return X_ubm, y_ubm,X_gmm, y_gmm, X_test, y_test
+
+    def _encode_labels(self, df, column_name):
+        labels = self.encoder.fit_transform(df[column_name])
+        return labels
+
+    def decoder_label(self, label):
+        speakers = self.encoder.inverse_transform(label)
+        return speakers
+
 
 class SpeakerDataLoader(Dataset):
     def __init__(self, df):

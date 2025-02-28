@@ -1,2 +1,6 @@
 # Ignore .pages files (too heavy)
 *.pages
+
+/saved_models/*
+
+/venv/

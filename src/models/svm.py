@@ -21,17 +21,23 @@ class SVMClassifier(BaseModel):
 
     def evaluate(self):
         y_pred = self.model.predict(self.X_test)
-        return accuracy_score(self.y_test, y_pred)
+        accuracy = accuracy_score(self.y_test, y_pred)
+        print(f"Accuracy svm: {accuracy}")
+        return accuracy
 
-    def save_model(self, path, filename: str = 'svm_0.pkl'):
+    def predict(self, X):
+        y_pred = self.model.predict(X)
+        return y_pred
+
+    def save(self, path, filename: str = 'svm.pkl'):
         base, ext = os.path.splitext(filename)
-        i = 0
-        while os.path.exists(filename):
+        i = 1
+        while os.path.exists(os.path.join(path, filename)):
             i+=1
             filename = f"{base}_{i}.{ext}"
         joblib.dump(self.model, os.path.join(path, filename))
-        print('Model saved')
+        print('Model SVM saved')
 
-    def load_model(self, save_path, filename: str = 'svm_0.pkl'):
+    def load(self, save_path, filename: str = 'svm_0.pkl'):
         self.model = joblib.load(os.path.join(save_path, filename))
-        print('Model loaded')
+        print('Model SVM loaded')

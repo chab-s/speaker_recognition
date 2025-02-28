@@ -1,4 +1,4 @@
-from sklearn.svm import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier
 from .base_model import BaseModel
 import joblib
 import os
@@ -20,17 +20,24 @@ class RandomForest(BaseModel):
 
     def evaluate(self):
         y_pred = self.model.predict(self.X_test)
-        return accuracy_score(self.y_test, y_pred)
+        accuracy = accuracy_score(self.y_test, y_pred)
+        print(f"Accuracy random_forest: {accuracy}")
+        return accuracy
 
-    def save_model(self, path: str, filename: str = 'svm_0.pkl'):
+    def predict(self, X):
+        y_pred = self.model.predict(X)
+        return y_pred
+
+    def save(self, path: str, filename: str = 'random_forest.pkl'):
         base, ext = os.path.splitext(filename)
-        i = 0
-        while os.path.exists(filename):
+        i = 1
+        while os.path.exists(os.path.join(path, filename)):
             i += 1
             filename = f"{base}_{i}.{ext}"
         joblib.dump(self.model, os.path.join(path, filename))
-        print('Model saved')
+        print('Model random_forest saved')
 
-    def load(self, path: str, filename: str = 'svm_0.pkl'):
+    def load(self, path: str, filename: str = 'random_forest.pkl'):
         self.model = joblib.load(os.path.join(path, filename))
+        print("Model random_forest loaded")
 

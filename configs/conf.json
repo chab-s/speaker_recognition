@@ -27,12 +27,23 @@
     "save_path": "weights/svm.pkl",
     "inference_data_path": "inference_data"
   },
-  "ubm_params": {
+  "svm": {
+    "kernel": "linear",
+    "save_path": "saved_models",
+    "filename": "svm.pkl"
+  },
+  "random_forest": {
+    "n_components": 100,
+    "save_path": "saved_models",
+    "filename": "random_forest.pkl"
+  },
+  "ubm_gmm": {
     "n_components": 12,
     "max_iter": 100,
     "random_state": 42,
-    "save_path": "ubm_weights",
-    "inference_data_path": "inference_data"
+    "covariance_type": "full",
+    "save_path": "saved_models",
+    "filename": "ubm_gmm.pkl"
   },
   "dnn_ubm": {
     "n_mfccs": 13,

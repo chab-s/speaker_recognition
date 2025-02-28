@@ -25,13 +25,13 @@ class BaseDataset(ABC):
 
     def split_data(self, test_size: float, val_size: float, random_state: int = 42):
 
-        X_train, y_train, X_test, y_test = train_test_split(
+        X_train, X_test, y_train, y_test = train_test_split(
             self.features, self.labels,
             test_size=test_size,
             random_state=random_state,
             stratify=self.labels
         )
-        X_train, y_train, X_val, y_val = train_test_split(
+        X_train, X_val, y_train, y_val = train_test_split(
             X_train, y_train,
             test_size=(1-test_size)*val_size,
             random_state=random_state,
@@ -40,11 +40,12 @@ class BaseDataset(ABC):
 
         return X_train, y_train, X_val, y_val, X_test, y_test
 
-    def _encode_label(self, column_name: str = 'speaker'):
-        self.labels = self.encoder.fit_transform(self.df[column_name])
+    def _encode_labels(self, df, column_name: str = 'speaker'):
+        labels = self.encoder.fit_transform(df[column_name])
+        return labels
 
-    def decode_label(self, label_id: int):
-        return self.encoder.inverse_transform(self.labels)[label_id]
+    def decode_label(self, label):
+        return self.encoder.inverse_transform(label)
 
     def get_batch(self, batch_size: int = 32, shuffle=True):
         pass
