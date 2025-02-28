@@ -1,9 +1,16 @@
 from src import SpeakerClassifier
 from src import SpeakerClustering
 
-from src import SpeakerFeatureExtractor
+from src import SpeakerFeatureExtractor, SpeakerDataLoader
 from src import ConfigManager
-from src import GMM_UBM
+from src import GMM_UBM, DNN_UBM
+
+import torch
+import torch.optim as optim
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from sklearn.preprocessing import LabelEncoder
+import joblib
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import RobustScaler
@@ -35,7 +42,7 @@ def train_model(save: bool = True):
     np.save(os.path.join(inference_data_path, 'inference_data.npy'), X_inference)
     np.save(os.path.join(inference_data_path, 'inference_labels.npy'), y_inference)
 
-    svm = SpeakerClassifier(model=model)
+    svm = SpeakerClassifier(model='SVM')
     svm.train(X_train, y_train)
     accuracy = svm.evaluate(X_test, y_test)
     print(f"Accuracy: {accuracy}")
@@ -55,7 +62,7 @@ def infer_model(weigths_path):
     X = np.load(os.path.join(inference_data_path, 'inference_data.npy'), allow_pickle=True)
     y_true = np.load(os.path.join(inference_data_path, 'inference_labels.npy'), allow_pickle=True)
 
-    svm = SpeakerClassifier(model=model)
+    svm = SpeakerClassifier(model='SVM')
     svm.load_model(weigths_path)
 
     y_pred = svm.model.predict(X)
@@ -95,11 +102,11 @@ def use_clustering():
 def ubm(save: bool = True, test: bool = False):
     dataset_path = conf.get('database.database_path')
     speakers = conf.get('database.speakers')
-    n_components = conf.get('gmm_ubm.n_components')
-    max_iter = conf.get('gmm_ubm.max_iter')
-    random_state = conf.get('gmm_ubm.random_state')
-    save_path = conf.get('gmm_ubm.save_path')
-    inference_data_path = conf.get('gmm_ubm.inference_data_path')
+    n_components = conf.get('ubm_params.n_components')
+    max_iter = conf.get('ubm_params.max_iter')
+    random_state = conf.get('ubm_params.random_state')
+    save_path = conf.get('ubm_params.save_path')
+    inference_data_path = conf.get('ubm_params.inference_data_path')
 
 
     dataset_speakers = SpeakerFeatureExtractor(dataset_path, speakers)
@@ -173,11 +180,11 @@ def ubm(save: bool = True, test: bool = False):
 
 def ubm_test():
     speakers = conf.get('database.speakers')
-    n_components = conf.get('gmm_ubm.n_components')
-    max_iter = conf.get('gmm_ubm.max_iter')
-    random_state = conf.get('gmm_ubm.random_state')
-    save_path = conf.get('gmm_ubm.save_path')
-    inference_data_path = conf.get('gmm_ubm.inference_data_path')
+    n_components = conf.get('ubm_params.n_components')
+    max_iter = conf.get('ubm_params.max_iter')
+    random_state = conf.get('ubm_params.random_state')
+    save_path = conf.get('ubm_params.save_path')
+    inference_data_path = conf.get('ubm_params.inference_data_path')
 
     gmm_ubm = GMM_UBM(n_components, max_iter, random_state)
     gmm_ubm.load_model(save_path, speakers)
@@ -192,19 +199,128 @@ def ubm_test():
             score+=1
     print(f'Accuracy: {score/len(y)}')
 
+def train_dnn_ubm(save: bool = True):
+    dataset_path = conf.get('database.database_path')
+    speakers = conf.get('database.speakers')
+    dataset_speakers = SpeakerFeatureExtractor(dataset_path, speakers)
+    dataset_speakers.features_extraction()
+
+    df = dataset_speakers.df.copy()
+
+    df_train, df_test = train_test_split(df, test_size=conf.get('dnn_ubm.test_size'),
+                                                        random_state=conf.get('dnn_ubm.random_state'))
+
+    df_train, df_inference = train_test_split(df_train, test_size=conf.get('dnn_ubm.test_size'),
+                                                        random_state=conf.get('dnn_ubm.random_state'))
+
+
+    y_train = df_train['speaker']
+    y_test = df_test['speaker']
+    df_train_encoded = df_train.copy()
+    df_test_encoded = df_test.copy()
+    label_encoder = LabelEncoder()
+    y_encoded = label_encoder.fit_transform(y_train)
+    df_train_encoded['speaker'] = y_encoded
+    # Vérification
+    df_test_encoded['speaker'] = label_encoder.transform(y_test)
+
+    joblib.dump(label_encoder, os.path.join(conf.get('dnn_ubm.inference_data_path'), 'label_encoder.pkl'))
+
+    if save:
+        inference_data_path = conf.get('dnn_ubm.inference_data_path')
+        X_inference = np.vstack(df_inference.filter(like='mfcc').values)
+        y_inference = np.vstack(df_inference['speaker'].values)
+        print(y_inference)
+        np.save(os.path.join(inference_data_path, 'dnn_ubm_inference_data.npy'), X_inference)
+        np.save(os.path.join(inference_data_path, 'dnn_ubm_inference_labels.npy'), label_encoder.transform(y_inference))
+
+
+    train_dataset = SpeakerDataLoader(df_train_encoded)
+    test_dataset = SpeakerDataLoader(df_test_encoded)
+    train_dataloader = DataLoader(train_dataset, batch_size=conf.get('dnn_ubm.batch_size'), shuffle=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=conf.get('dnn_ubm.batch_size'), shuffle=True)
+    input_dim = train_dataset.features.shape[1]
+    n_components = len(speakers)
+
+    model = DNN_UBM(input_dim=input_dim, n_components=n_components)
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=conf.get('dnn_ubm.learning_rate'))
+
+    num_epochs = conf.get('dnn_ubm.num_epochs')
+    model.train()
+    for epoch in range(num_epochs):
+        epoch_loss = 0.0
+        for batch_features, batch_labels in train_dataloader:
+            batch_features = torch.tensor(batch_features)
+
+            optimizer.zero_grad()
+            outputs = model(batch_features)
+            loss = criterion(outputs, batch_labels)
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss.item() * batch_features.size(0)
+        avg_loss = epoch_loss / df.size
+        print(f"Epoch {epoch+1}/{num_epochs}, Loss: {avg_loss:.4f}")
+
+    model.eval()
+    test_loss = 0.0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for batch_features, batch_labels in test_dataloader:
+            outputs = model(batch_features)
+            loss = criterion(outputs, batch_labels)
+            test_loss += loss.item() * batch_features.size(0)
+
+            _, predicted = torch.max(outputs, 1)
+            total += batch_labels.size(0)
+            correct += (predicted == batch_labels).sum().item()
+
+    avg_test_loss = test_loss / len(test_dataloader.dataset)
+    accuracy = correct / total
+    print(f"Validation Loss: {avg_test_loss:.4f}, Accuracy: {accuracy:.4f}")
+
+def dnn_ubm_predict():
+    inference_data_path = conf.get('dnn_ubm.inference_data_path')
+    speakers = conf.get('database.speakers')
+    X_inference = np.load(os.path.join(inference_data_path, 'dnn_ubm_inference_data.npy'))
+    y_inference = np.load(os.path.join(inference_data_path, 'dnn_ubm_inference_labels.npy'))
+    label_encoder = joblib.load(os.path.join(conf.get('dnn_ubm.inference_data_path'), 'label_encoder.pkl'))
+
+    print(X_inference.shape, y_inference.shape)
+    input_dim = X_inference.shape[1]
+    n_components = len(speakers)
+
+    model = DNN_UBM(input_dim=input_dim, n_components=n_components)
+    correct = 0
+    model.eval()
+    for x, y in zip(X_inference, y_inference):
+        with torch.no_grad():
+            # Supposons que x est un vecteur de dimension (input_dim,)
+            # On le reformate en (1, input_dim)
+            x = x.reshape(1, -1)
+            output = model(torch.tensor(x, dtype=torch.float))
+            # Pour la classification, récupérer l'index de la classe prédite
+            predicted_class = torch.argmax(output, dim=1).item()
+            correct += predicted_class == label_encoder.inverse_transform([y])[0]
+    print(f"Accuracy: {(correct) / len(y_inference)}")
+
 
 
 
 
 if __name__ == '__main__':
 
-    # train_model()
-    # weights_path = conf.get("model.save_path")
-    # infer_model(weights_path)
+    train_model()
+    weights_path = conf.get("model.save_path")
+    infer_model(weights_path)
 
     # use_clustering()
     ubm(save=True)
     ubm_test()
 
-
+    # train_dnn_ubm(save=True)
+    # dnn_ubm_predict()
 

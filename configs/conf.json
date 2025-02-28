@@ -1,0 +1,46 @@
+{
+  "database": {
+    "path": "/Users/mc/.cache/kagglehub/datasets/kongaevans/speaker-recognition-dataset/versions/1/16000_pcm_speeches",
+    "sampling_rate": 16000,
+    "n_mfcc": 13,
+    "speakers": [
+      "Jens_Stoltenberg",
+      "Benjamin_Netanyau",
+      "Julia_Gillard",
+      "Magaret_Tarcher",
+      "Nelson_Mandela"
+    ],
+    "noises": [
+      "other",
+      "_background_noise_"
+    ],
+    "train_test_split": {
+      "train": 0.7,
+      "test": 0.15,
+      "validation": 0.15
+    }
+  },
+  "model": {
+    "model": "KMeans",
+    "test_size": 0.2,
+    "random_state": 42,
+    "save_path": "weights/svm.pkl",
+    "inference_data_path": "inference_data"
+  },
+  "ubm_params": {
+    "n_components": 12,
+    "max_iter": 100,
+    "random_state": 42,
+    "save_path": "ubm_weights",
+    "inference_data_path": "inference_data"
+  },
+  "dnn_ubm": {
+    "n_mfccs": 13,
+    "test_size": 0.2,
+    "random_state": 42,
+    "learning_rate":1e-3,
+    "num_epochs": 20,
+    "batch_size": 16,
+    "inference_data_path": "inference_data"
+  }
+}

@@ -6,6 +6,8 @@ import json
 from .config_manager import ConfigManager
 conf = ConfigManager("conf.json")
 
+from torch.utils.data import Dataset
+
 
 class AudioDatasetLoader:
 
@@ -36,7 +38,6 @@ class AudioDatasetLoader:
                     )
 
         return pd.DataFrame(data)
-
 
 class SpeakerFeatureExtractor(AudioDatasetLoader):
     def __init__(self, dataset_path, speakers):
@@ -87,12 +88,24 @@ class SpeakerFeatureExtractor(AudioDatasetLoader):
         mfcc_df = pd.DataFrame(mfcc_features, columns=mfcc_columns)
         self.df = pd.concat([self.df.reset_index(drop=True), mfcc_df], axis=1)
 
-
 class NoiseFeatureExtractor(AudioDatasetLoader):
     """Classe pour extraire les caractéristiques des bruits audio."""
 
     def __init__(self, dataset_path, noises):
         super().__init__(dataset_path)
         self.df = self.df[self.df['AudioCorpus'].isin(noises)].copy()
+
+
+class SpeakerDataLoader(Dataset):
+    def __init__(self, df):
+        self.features = df.filter(like='mfcc').values.astype(np.float32)
+        self.labels = df['speaker'].values.astype(np.int64)
+
+    def __len__(self):
+        return len(self.features)
+
+    def __getitem__(self, idx):
+        return self.features[idx], self.labels[idx]
+
 
 

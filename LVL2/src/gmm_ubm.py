@@ -4,28 +4,32 @@ from sklearn.mixture import GaussianMixture
 import joblib
 import os
 
+import torch.nn as nn
+
 from .config_manager import ConfigManager
 conf = ConfigManager('conf.json')
 
 
 class GMM_UBM:
     def __init__(self, n_components: int = 64, max_iter: int = 100, random_stats: int = 42):
-        self.n_components = n_components
-        self.max_iter = max_iter
-        self.random_state = random_stats
+        self.n_components = conf.get('ubm_params.n_components'),
+        self.max_iter = conf.get('ubm_params.max_iter'),
+        self.covariance_type = conf.get('ubm_params.covariance_type'),
+        self.random_state = conf.get('ubm_params.random_state'),
         self.ubm = None
         self.speaker_models = {}
-        self.vis = Visualiser()
+
 
     def train_ubm(self, df):
         X = np.vstack(df.filter(like='mfcc').values)
         self.ubm = GaussianMixture(
-            n_components=self.n_components,
-            max_iter=self.max_iter,
-            covariance_type=conf.get('gmm_ubm.covariance_type'),
-            random_state=self.random_state
+            n_components=self.n_components[0],
+            max_iter=self.max_iter[0],
+            covariance_type=self.covariance_type[0],
+            random_state=self.random_state[0]
         )
-
+        print(self.max_iter)
+        print(self.covariance_type)
         self.ubm.fit(X)
         # Metrics
         log_likelihood = self.ubm.score(X)
@@ -34,7 +38,7 @@ class GMM_UBM:
         print("UBM trained successfully")
         print(f"Log-Vraisemblance Moyenne : {log_likelihood:.2f}")
         print(f"BIC : {bic:.2f}  /  AIC : {aic:.2f}")
-        # Visualisation
+
         return log_likelihood, bic, aic
 
     def adapt_speaker_models(self, df):
@@ -45,10 +49,11 @@ class GMM_UBM:
             df_speaker = df[df['speaker'] == speaker]
             X_speaker = np.vstack(df_speaker.filter(like='mfcc').values)
 
-            gmm_speaker = GaussianMixture(n_components=self.n_components,
-            max_iter=self.max_iter,
-            covariance_type=conf.get('gmm_ubm.covariance_type'),
-            random_state=self.random_state
+            gmm_speaker = GaussianMixture(
+                n_components=self.n_components[0],
+                max_iter=self.max_iter[0],
+                covariance_type=self.covariance_type[0],
+                random_state=self.random_state[0]
             )
 
             gmm_speaker.means_ = self.ubm.means_
@@ -79,28 +84,20 @@ class GMM_UBM:
 
 
 
-class DNN_UBM():
-    def __init__(self, data):
-        self.model = None
-        self.data = data
+class DNN_UBM(nn.Module):
+    def __init__(self, input_dim, n_components):
+        super(DNN_UBM, self).__init__()
+        self.fc1 = nn.Linear(input_dim, 128)
+        self.relu1 = nn.ReLU()
+        self.fc2 = nn.Linear(128, 64)
+        self.relu2 = nn.ReLU()
+        self.fc3 = nn.Linear(64, n_components)
+        self.softmax = nn.Softmax(dim=1)
 
-
-# def main(self):
-#     criterion = nn.CrossEntropyLoss()
-#     optimizer = optim.Adam(self.model.parameters(), lr=conf.get('dnn_ubm.lr'))
-#
-#     self.model.train()
-#     for epoch in range(conf.get('dnn_ubm.num_epochs')):
-#         epoch_loss = 0.0
-#         for batch_features, batch_labels in self.data:
-#             batch_features = torch.tensor(batch_features)
-#             batch_labels = torch.tensor(batch_labels)
-#
-#             optimizer.zero_grad()
-#             output = self.model(batch_features)
-#             loss = criterion(output, batch_labels)
-#             loss.backward()
-#             optimizer.step()
-#
-#             epoch_loss += loss.item() * batch_features.size(0)
-#         avg_loss = epoch_loss / len(self.data.dataset)
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.relu1(x)
+        x = self.fc2(x)
+        x = self.relu2(x)
+        x = self.fc3(x)
+        return self.softmax(x)

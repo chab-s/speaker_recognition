@@ -33,6 +33,16 @@
     "max_iter": 100,
     "random_state": 42,
     "save_path": "ubm_weights",
+    "covariance_type": "full",
+    "inference_data_path": "inference_data"
+  },
+  "dnn_ubm": {
+    "n_mfccs": 13,
+    "test_size": 0.2,
+    "random_state": 42,
+    "learning_rate":1e-3,
+    "num_epochs": 20,
+    "batch_size": 16,
     "inference_data_path": "inference_data"
   }
 }
